@@ -12,7 +12,7 @@ import math
 import os
 import random
 import sys
-
+from sys import intern
 from collections import defaultdict, namedtuple
 
 
@@ -34,7 +34,7 @@ class SpacedRepetitionModel(object):
       - 'leitner' (fixed)
       - 'pimsleur' (fixed)
     """
-    def __init__(self, method='hlr', omit_h_term=False, initial_weights=None, lrate=.001, hlwt=.01, l2wt=.1, sigma=1.):
+    def __init__(self, method='hlr', omit_h_term=False, initial_weights=None, lrate=.001, hlwt=.1, l2wt=.1, sigma=1.):
         self.method = method
         self.omit_h_term = omit_h_term
         self.weights = defaultdict(float)
@@ -116,8 +116,10 @@ class SpacedRepetitionModel(object):
         if self.method == 'leitner' or self.method == 'pimsleur':
             return
         random.shuffle(trainset)
-        for inst in trainset:
-            self.train_update(inst)
+        for epoch in range(3):
+            print("epoch %d"% epoch)
+            for inst in trainset:
+                self.train_update(inst)
 
     def losses(self, inst):
         p, h = self.predict(inst)
@@ -150,19 +152,19 @@ class SpacedRepetitionModel(object):
             mae_p, cor_p, mae_h, cor_h))
 
     def dump_weights(self, fname):
-        with open(fname, 'wb') as f:
-            for (k, v) in self.weights.iteritems():
+        with open(fname, 'w') as f:
+            for (k, v) in self.weights.items():
                 f.write('%s\t%.4f\n' % (k, v))
 
     def dump_predictions(self, fname, testset):
-        with open(fname, 'wb') as f:
+        with open(fname, 'w') as f:
             f.write('p\tpp\th\thh\tlang\tuser_id\ttimestamp\n')
             for inst in testset:
                 pp, hh = self.predict(inst)
                 f.write('%.4f\t%.4f\t%.4f\t%.4f\t%s\t%s\t%d\n' % (inst.p, pp, inst.h, hh, inst.lang, inst.uid, inst.ts))
 
     def dump_detailed_predictions(self, fname, testset):
-        with open(fname, 'wb') as f:
+        with open(fname, 'w') as f:
             f.write('p\tpp\th\thh\tlang\tuser_id\ttimestamp\tlexeme_tag\n')
             for inst in testset:
                 pp, hh = self.predict(inst)
@@ -213,7 +215,7 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
     if input_file.endswith('gz'):
         f = gzip.open(input_file, 'rb')
     else:
-        f = open(input_file, 'rb')
+        f = open(input_file, 'r')
     reader = csv.DictReader(f)
     for i, row in enumerate(reader):
         if max_lines is not None and i >= max_lines:
@@ -239,8 +241,8 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
         elif method == 'pimsleur':
             fv.append((intern('total'), right+wrong))
         else:
-            # fv.append((intern('right'), right))
-            # fv.append((intern('wrong'), wrong))
+            #fv.append((intern('right'), right))
+            #fv.append((intern('wrong'), wrong))
             fv.append((intern('right'), math.sqrt(1+right)))
             fv.append((intern('wrong'), math.sqrt(1+wrong)))
         # optional flag features
@@ -265,7 +267,7 @@ argparser.add_argument('-t', action="store_true", default=False, help='omit half
 argparser.add_argument('-m', action="store", dest="method", default='hlr', help="hlr, lr, leitner, pimsleur")
 argparser.add_argument('-x', action="store", dest="max_lines", type=int, default=None, help="maximum number of lines to read (for dev)")
 argparser.add_argument('input_file', action="store", help='log file for training')
-
+argparser.add_argument('-h_reg', action="store", dest="hlwt",type=float, help="h regularization weight", default=0.01)
 
 if __name__ == "__main__":
 
@@ -286,13 +288,13 @@ if __name__ == "__main__":
     sys.stderr.write('|test|  = %d\n' % len(testset))
 
     # train model & print preliminary evaluation info
-    model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t)
+    model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t,hlwt=args.hlwt)
     model.train(trainset)
     model.eval(testset, 'test')
 
     # write out model weights and predictions
     filebits = [args.method] + \
-        [k for k, v in sorted(vars(args).iteritems()) if v is True] + \
+        [k for k, v in sorted(vars(args).items()) if v is True] + \
         [os.path.splitext(os.path.basename(args.input_file).replace('.gz', ''))[0]]
     if args.max_lines is not None:
         filebits.append(str(args.max_lines))
