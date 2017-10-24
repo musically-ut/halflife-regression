@@ -241,10 +241,10 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
         elif method == 'pimsleur':
             fv.append((intern('total'), right+wrong))
         else:
-            #fv.append((intern('right'), right))
-            #fv.append((intern('wrong'), wrong))
-            fv.append((intern('right'), math.sqrt(1+right)))
-            fv.append((intern('wrong'), math.sqrt(1+wrong)))
+            fv.append((intern('right'), right))
+            fv.append((intern('wrong'), wrong))
+            #fv.append((intern('right'), math.sqrt(1+right)))
+            #fv.append((intern('wrong'), math.sqrt(1+wrong)))
         # optional flag features
         if method == 'lr':
             fv.append((intern('time'), t))
@@ -268,6 +268,7 @@ argparser.add_argument('-m', action="store", dest="method", default='hlr', help=
 argparser.add_argument('-x', action="store", dest="max_lines", type=int, default=None, help="maximum number of lines to read (for dev)")
 argparser.add_argument('input_file', action="store", help='log file for training')
 argparser.add_argument('-h_reg', action="store", dest="hlwt",type=float, help="h regularization weight", default=0.01)
+argparser.add_argument('-l2wt', action="store", dest="l2wt",type=float, help="h regularization weight", default=0.1)
 
 if __name__ == "__main__":
 
@@ -288,7 +289,7 @@ if __name__ == "__main__":
     sys.stderr.write('|test|  = %d\n' % len(testset))
 
     # train model & print preliminary evaluation info
-    model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t,hlwt=args.hlwt)
+    model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t,hlwt=args.hlwt,l2wt=args.l2wt)
     model.train(trainset)
     model.eval(testset, 'test')
 
