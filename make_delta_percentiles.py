@@ -14,7 +14,7 @@ args = argparser.parse_args()
 print('Reading {} ...'.format(args.input_file))
 df = pandas.read_csv(args.input_file)
 delta = df.delta / (60 * 60 * 24)
-last_time = delta.max()
+last_time = delta.max() + 1  # The +1 makes all bins include the left boundary while excluding the right boundary.
 quantiles = [int(x) for x in args.q.split(',')]
 
 for num_q in quantiles:

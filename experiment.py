@@ -254,7 +254,7 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
         elif method == 'hlr-pw':
             # Now need to fill in the right_{qantile} for each row.
             for q in range(num_quantiles):
-                in_this_quantile = quantile_intervals[q][0] < t <= quantile_intervals[q][1]
+                in_this_quantile = quantile_intervals[q][0] <= t < quantile_intervals[q][1]
                 fv.append(('right_%d' % q, right if in_this_quantile else 0))
                 fv.append(('wrong_%d' % q, wrong if in_this_quantile else 0))
         else:
