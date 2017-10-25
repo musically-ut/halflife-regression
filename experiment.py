@@ -48,33 +48,33 @@ class SpacedRepetitionModel(object):
 
     def halflife(self, inst, base):
         try:
-            dp = sum([self.weights[k]*x_k for (k, x_k) in inst.fv])
+            dp = sum([self.weights[k] * x_k for (k, x_k) in inst.fv])
             return hclip(base ** dp)
         except:
             return MAX_HALF_LIFE
 
     def predict(self, inst, base=2.):
-        if self.method == 'hlr':
+        if self.method == 'hlr' or self.method == 'hlr-pw':
             h = self.halflife(inst, base)
-            p = 2. ** (-inst.t/h)
+            p = 2. ** (-inst.t / h)
             return pclip(p), h
         elif self.method == 'leitner':
             try:
                 h = hclip(2. ** inst.fv[0][1])
             except OverflowError:
                 h = MAX_HALF_LIFE
-            p = 2. ** (-inst.t/h)
+            p = 2. ** (-inst.t / h)
             return pclip(p), h
         elif self.method == 'pimsleur':
             try:
                 h = hclip(2. ** (2.35*inst.fv[0][1] - 16.46))
             except OverflowError:
                 h = MAX_HALF_LIFE
-            p = 2. ** (-inst.t/h)
+            p = 2. ** (-inst.t / h)
             return pclip(p), h
         elif self.method == 'lr':
-            dp = sum([self.weights[k]*x_k for (k, x_k) in inst.fv])
-            p = 1./(1+math.exp(-dp))
+            dp = sum([self.weights[k] * x_k for (k, x_k) in inst.fv])
+            p = 1. / (1 + math.exp(-dp))
             return pclip(p), random.random()
         else:
             raise Exception
@@ -83,10 +83,10 @@ class SpacedRepetitionModel(object):
         if self.method == 'hlr':
             base = 2.
             p, h = self.predict(inst, base)
-            dlp_dw = 2.*(p-inst.p)*(LN2**2)*p*(inst.t/h)
-            dlh_dw = 2.*(h-inst.h)*LN2*h
+            dlp_dw = 2. * (p - inst.p)*(LN2 ** 2)* p * (inst.t / h)
+            dlh_dw = 2. * (h - inst.h) * LN2 * h
             for (k, x_k) in inst.fv:
-                rate = (1./(1+inst.p)) * self.lrate / math.sqrt(1 + self.fcounts[k])
+                rate = (1. / (1 + inst.p)) * self.lrate / math.sqrt(1 + self.fcounts[k])
                 # rate = self.lrate / math.sqrt(1 + self.fcounts[k])
                 # sl(p) update
                 self.weights[k] -= rate * dlp_dw * x_k
@@ -117,7 +117,7 @@ class SpacedRepetitionModel(object):
             return
         random.shuffle(trainset)
         for epoch in range(3):
-            print("epoch %d"% epoch)
+            print("epoch %d" % epoch)
             for inst in trainset:
                 self.train_update(inst)
 
@@ -144,12 +144,12 @@ class SpacedRepetitionModel(object):
         total_slp = sum(results['slp'])
         total_slh = sum(results['slh'])
         total_l2 = sum([x**2 for x in self.weights.values()])
-        total_loss = total_slp + self.hlwt*total_slh + self.l2wt*total_l2
+        total_loss = total_slp + self.hlwt * total_slh + self.l2wt * total_l2
         if prefix:
             sys.stderr.write('%s\t' % prefix)
-        sys.stderr.write('%.1f (p=%.1f, h=%.1f, l2=%.1f)\tmae(p)=%.3f\tcor(p)=%.3f\tmae(h)=%.3f\tcor(h)=%.3f\n' % \
-            (total_loss, total_slp, self.hlwt*total_slh, self.l2wt*total_l2, \
-            mae_p, cor_p, mae_h, cor_h))
+        sys.stderr.write('%.1f (p=%.1f, h=%.1f, l2=%.1f)\tmae(p)=%.3f\tcor(p)=%.3f\tmae(h)=%.3f\tcor(h)=%.3f\n' %
+                         (total_loss, total_slp, self.hlwt * total_slh, self.l2wt * total_l2,
+                          mae_p, cor_p, mae_h, cor_h))
 
     def dump_weights(self, fname):
         with open(fname, 'w') as f:
@@ -191,7 +191,7 @@ def mae(l1, l2):
 
 def mean(lst):
     # the average of a list
-    return float(sum(lst))/len(lst)
+    return float(sum(lst)) / len(lst)
 
 
 def spearmanr(l1, l2):
@@ -221,8 +221,8 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
         if max_lines is not None and i >= max_lines:
             break
         p = pclip(float(row['p_recall']))
-        t = float(row['delta'])/(60*60*24)  # convert time delta to days
-        h = hclip(-t/(math.log(p, 2)))
+        t = float(row['delta']) / (60 * 60 * 24)  # convert time delta to days
+        h = hclip(-t / (math.log(p, 2)))
         lang = '%s->%s' % (row['ui_language'], row['learning_language'])
         lexeme_id = row['lexeme_id']
         lexeme_string = row['lexeme_string']
@@ -237,10 +237,10 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
         fv = []
         # core features based on method
         if method == 'leitner':
-            fv.append((intern('diff'), right-wrong))
+            fv.append((intern('diff'), right - wrong))
         elif method == 'pimsleur':
-            fv.append((intern('total'), right+wrong))
-        else:
+            fv.append((intern('total'), right + wrong))
+        elif method == 'hlr':
             fv.append((intern('right'), right))
             fv.append((intern('wrong'), wrong))
             #fv.append((intern('right'), math.sqrt(1+right)))
@@ -252,7 +252,7 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
             fv.append((intern('bias'), 1.))
         if not omit_lexemes:
             fv.append((intern('%s:%s' % (row['learning_language'], lexeme_string)), 1.))
-        instances.append(Instance(p, t, fv, h, (right+2.)/(seen+4.), lang, right_this, wrong_this, timestamp, user_id, lexeme_string))
+        instances.append(Instance(p, t, fv, h, (right + 2.) / (seen + 4.), lang, right_this, wrong_this, timestamp, user_id, lexeme_string))
         if i % 1000000 == 0:
             sys.stderr.write('%d...' % i)
     sys.stderr.write('done!\n')
@@ -302,6 +302,6 @@ if __name__ == "__main__":
     filebase = '.'.join(filebits)
     if not os.path.exists('results/'):
         os.makedirs('results/')
-    model.dump_weights('results/'+filebase+'.weights')
-    model.dump_predictions('results/'+filebase+'.preds', testset)
+    model.dump_weights('results/' + filebase + '.weights')
+    model.dump_predictions('results/' + filebase + '.preds', testset)
     # model.dump_detailed_predictions('results/'+filebase+'.detailed', testset)
