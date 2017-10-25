@@ -80,7 +80,7 @@ class SpacedRepetitionModel(object):
             raise Exception
 
     def train_update(self, inst):
-        if self.method == 'hlr':
+        if self.method == 'hlr' or self.method == 'hlr-pw':
             base = 2.
             p, h = self.predict(inst, base)
             dlp_dw = 2. * (p - inst.p)*(LN2 ** 2)* p * (inst.t / h)
@@ -201,16 +201,22 @@ def spearmanr(l1, l2):
     num = 0.
     d1 = 0.
     d2 = 0.
-    for i in range(len(l1)):
-        num += (l1[i]-m1)*(l2[i]-m2)
-        d1 += (l1[i]-m1)**2
-        d2 += (l2[i]-m2)**2
-    return num/math.sqrt(d1*d2)
+    if len(l1) > 0:
+        for i in range(len(l1)):
+            num += (l1[i] - m1) * (l2[i] - m2)
+            d1 += (l1[i] - m1)**2
+            d2 += (l2[i] - m2)**2
+        return num / math.sqrt(d1 * d2)
+    else:
+        return float('nan')
 
 
-def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines=None):
+def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines=None, bins=None):
     # read learning trace data in specified format, see README for details
     sys.stderr.write('reading data...')
+
+    num_quantiles = len(bins) - 1
+    quantile_intervals = list(zip(bins[:-1], bins[1:]))
     instances = list()
     if input_file.endswith('gz'):
         f = gzip.open(input_file, 'rb')
@@ -243,8 +249,17 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
         elif method == 'hlr':
             fv.append((intern('right'), right))
             fv.append((intern('wrong'), wrong))
-            #fv.append((intern('right'), math.sqrt(1+right)))
-            #fv.append((intern('wrong'), math.sqrt(1+wrong)))
+            # fv.append((intern('right'), math.sqrt(1+right)))
+            # fv.append((intern('wrong'), math.sqrt(1+wrong)))
+        elif method == 'hlr-pw':
+            # Now need to fill in the right_{qantile} for each row.
+            for q in range(num_quantiles):
+                in_this_quantile = quantile_intervals[q][0] < t <= quantile_intervals[q][1]
+                fv.append(('right_%d' % q, right if in_this_quantile else 0))
+                fv.append(('wrong_%d' % q, wrong if in_this_quantile else 0))
+        else:
+            raise Exception("Unknown method {}".format(method))
+
         # optional flag features
         if method == 'lr':
             fv.append((intern('time'), t))
@@ -264,11 +279,12 @@ argparser = argparse.ArgumentParser(description='Fit a SpacedRepetitionModel to 
 argparser.add_argument('-b', action="store_true", default=False, help='omit bias feature')
 argparser.add_argument('-l', action="store_true", default=False, help='omit lexeme features')
 argparser.add_argument('-t', action="store_true", default=False, help='omit half-life term')
-argparser.add_argument('-m', action="store", dest="method", default='hlr', help="hlr, lr, leitner, pimsleur")
+argparser.add_argument('-m', action="store", dest="method", default='hlr', help="hlr, lr, leitner, pimsleur, hlr-pw")
 argparser.add_argument('-x', action="store", dest="max_lines", type=int, default=None, help="maximum number of lines to read (for dev)")
 argparser.add_argument('input_file', action="store", help='log file for training')
-argparser.add_argument('-h_reg', action="store", dest="hlwt",type=float, help="h regularization weight", default=0.01)
-argparser.add_argument('-l2wt', action="store", dest="l2wt",type=float, help="h regularization weight", default=0.1)
+argparser.add_argument('-h_reg', action="store", dest="hlwt", type=float, help="h regularization weight", default=0.01)
+argparser.add_argument('-l2wt', action="store", dest="l2wt", type=float, help="h regularization weight", default=0.1)
+argparser.add_argument('-bins', action="store", dest="bins", help="File where the bins boundaries are stored (in days).", default=None)
 
 if __name__ == "__main__":
 
@@ -283,13 +299,23 @@ if __name__ == "__main__":
     if args.t:
         sys.stderr.write('--> omit_h_term\n')
 
+    if args.method == 'hlr-pw' and args.bins is None:
+        sys.stderr.write('Must provide a file with the time-bins for HLR/Piecewise-Constant rates.')
+        sys.exit(-1)
+
     # read data set
-    trainset, testset = read_data(args.input_file, args.method, args.b, args.l, args.max_lines)
+    if args.bins:
+        with open(args.bins) as bins_file:
+            bins = [float(x) for x in bins_file]
+    else:
+        bins = None
+
+    trainset, testset = read_data(args.input_file, args.method, args.b, args.l, args.max_lines, bins=bins)
     sys.stderr.write('|train| = %d\n' % len(trainset))
     sys.stderr.write('|test|  = %d\n' % len(testset))
 
     # train model & print preliminary evaluation info
-    model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t,hlwt=args.hlwt,l2wt=args.l2wt)
+    model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t, hlwt=args.hlwt, l2wt=args.l2wt)
     model.train(trainset)
     model.eval(testset, 'test')
 
@@ -297,6 +323,9 @@ if __name__ == "__main__":
     filebits = [args.method] + \
         [k for k, v in sorted(vars(args).items()) if v is True] + \
         [os.path.splitext(os.path.basename(args.input_file).replace('.gz', ''))[0]]
+    if bins is not None:
+        filebits += ['{}-bins'.format(len(bins) - 1)]
+
     if args.max_lines is not None:
         filebits.append(str(args.max_lines))
     filebase = '.'.join(filebits)
