@@ -67,7 +67,7 @@ class SpacedRepetitionModel(object):
             return pclip(p), h
         elif self.method == 'pimsleur':
             try:
-                h = hclip(2. ** (2.35*inst.fv[0][1] - 16.46))
+                h = hclip(2. ** (2.35 * inst.fv[0][1] - 16.46))
             except OverflowError:
                 h = MAX_HALF_LIFE
             p = 2. ** (-inst.t / h)
@@ -83,7 +83,7 @@ class SpacedRepetitionModel(object):
         if self.method == 'hlr' or self.method == 'hlr-pw':
             base = 2.
             p, h = self.predict(inst, base)
-            dlp_dw = 2. * (p - inst.p)*(LN2 ** 2)* p * (inst.t / h)
+            dlp_dw = 2. * (p - inst.p) * (LN2 ** 2) * p * (inst.t / h)
             dlh_dw = 2. * (h - inst.h) * LN2 * h
             for (k, x_k) in inst.fv:
                 rate = (1. / (1 + inst.p)) * self.lrate / math.sqrt(1 + self.fcounts[k])
