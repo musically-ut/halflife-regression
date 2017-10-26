@@ -40,6 +40,11 @@ class SpacedRepetitionModel(object):
         self.weights = defaultdict(float)
         if initial_weights is not None:
             self.weights.update(initial_weights)
+
+        if method == 'power':
+            self.weights['A'] = 1.0
+            self.weights['B'] = 1.0
+
         self.fcounts = defaultdict(int)
         self.lrate = lrate
         self.hlwt = hlwt
@@ -54,7 +59,11 @@ class SpacedRepetitionModel(object):
             return MAX_HALF_LIFE
 
     def predict(self, inst, base=2.):
-        if self.method == 'hlr' or self.method == 'hlr-pw':
+        if self.method == 'power':
+            h = self.halflife(inst, base)
+            p = self.weights['A'] * (1 + self.weights['B'] * inst.t) ** (-1 / h)
+            return pclip(p), h
+        elif self.method == 'hlr' or self.method == 'hlr-pw':
             h = self.halflife(inst, base)
             p = 2. ** (-inst.t / h)
             return pclip(p), h
@@ -80,7 +89,47 @@ class SpacedRepetitionModel(object):
             raise Exception
 
     def train_update(self, inst):
-        if self.method == 'hlr' or self.method == 'hlr-pw':
+        if self.method == 'power':
+            p, h = self.predict(inst)
+            A, B = self.weights['A'], self.weights['B']
+            log_p = math.log(inst.p)
+            h_empirical = hclip(- math.log(A * (1 + B * inst.t)) / log_p)
+            dlp_dw = 2. * (p - inst.p) * (math.log(1 + B * inst.t)) / h * LN2 * p
+            dlh_dw = 2. * (h - h_empirical) * LN2 * h
+
+            dlp_dA = 2 * (p - inst.p) * (1 + B * inst.t) ** (-1 / h)
+            dlp_dB = 2 * (p - inst.p) * p * inst.t / (1 + B * inst.t)
+
+            dlh_dA = 2 * (h - h_empirical) / (A * log_p)
+            dlh_dB = 2 * (h - h_empirical) * inst.t / ((1 + B * inst.t) * log_p)
+
+            for (k, x_k) in inst.fv + [('A', None), ('B', None)]:
+                rate = (1. / (1 + inst.p)) * self.lrate / math.sqrt(1 + self.fcounts[k])
+
+                if k == 'A':
+                    self.weights[k] -= rate * dlp_dA
+                    if not self.omit_h_term:
+                        self.weights[k] -= rate * self.hlwt * dlh_dA
+
+                    self.weights[k] = max(0.0001, self.weights[k])
+                elif k == 'B':
+                    self.weights[k] -= rate * dlp_dB
+                    if not self.omit_h_term:
+                        self.weights[k] -= rate * self.hlwt * dlh_dB
+
+                    self.weights[k] = max(0.0001, self.weights[k])
+                else:
+                    self.weights[k] -= rate * dlp_dw * x_k
+
+                    if not self.omit_h_term:
+                        self.weights[k] -= rate * self.hlwt * dlh_dw * x_k
+
+                # L2 regularization update
+                self.weights[k] -= rate * self.l2wt * self.weights[k] / self.sigma ** 2
+
+                # Increment feature count for learning rate
+                self.fcounts[k] += 1
+        elif self.method == 'hlr' or self.method == 'hlr-pw':
             base = 2.
             p, h = self.predict(inst, base)
             dlp_dw = 2. * (p - inst.p) * (LN2 ** 2) * p * (inst.t / h)
@@ -251,7 +300,7 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
             fv.append((intern('diff'), right - wrong))
         elif method == 'pimsleur':
             fv.append((intern('total'), right + wrong))
-        elif method == 'hlr':
+        elif method == 'hlr' or method == 'power':
             fv.append((intern('right'), right))
             fv.append((intern('wrong'), wrong))
             # fv.append((intern('right'), math.sqrt(1+right)))
@@ -284,7 +333,7 @@ argparser = argparse.ArgumentParser(description='Fit a SpacedRepetitionModel to 
 argparser.add_argument('-b', action="store_true", default=False, help='omit bias feature')
 argparser.add_argument('-l', action="store_true", default=False, help='omit lexeme features')
 argparser.add_argument('-t', action="store_true", default=False, help='omit half-life term')
-argparser.add_argument('-m', action="store", dest="method", default='hlr', help="hlr, lr, leitner, pimsleur, hlr-pw")
+argparser.add_argument('-m', action="store", dest="method", default='hlr', help="hlr, lr, leitner, pimsleur, hlr-pw,power")
 argparser.add_argument('-x', action="store", dest="max_lines", type=int, default=None, help="maximum number of lines to read (for dev)")
 argparser.add_argument('input_file', action="store", help='log file for training')
 argparser.add_argument('-h_reg', action="store", dest="hlwt", type=float, help="h regularization weight", default=0.01)
