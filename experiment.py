@@ -284,7 +284,7 @@ argparser.add_argument('-m', action="store", dest="method", default='hlr', help=
 argparser.add_argument('-x', action="store", dest="max_lines", type=int, default=None, help="maximum number of lines to read (for dev)")
 argparser.add_argument('input_file', action="store", help='log file for training')
 argparser.add_argument('-h_reg', action="store", dest="hlwt", type=float, help="h regularization weight", default=0.01)
-argparser.add_argument('-l2wt', action="store", dest="l2wt", type=float, help="h regularization weight", default=0.1)
+argparser.add_argument('-l2wt', action="store", dest="l2wt", type=float, help="L2 regularization weight", default=0.1)
 argparser.add_argument('-bins', action="store", dest="bins", help="File where the bins boundaries are stored (in days).", default=None)
 
 if __name__ == "__main__":
