@@ -216,8 +216,12 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
     # read learning trace data in specified format, see README for details
     sys.stderr.write('reading data...')
 
-    num_quantiles = len(bins) - 1
-    quantile_intervals = list(zip(bins[:-1], bins[1:]))
+    if method == 'hlr-pw':
+        num_quantiles = len(bins) - 1
+        quantile_intervals = list(zip(bins[:-1], bins[1:]))
+    else:
+        num_quantiles, quantile_intervals = None, []
+
     instances = list()
     if input_file.endswith('gz'):
         f = gzip.open(input_file, 'rb')
