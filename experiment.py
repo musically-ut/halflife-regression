@@ -112,7 +112,7 @@ class SpacedRepetitionModel(object):
                 # increment feature count for learning rate
                 self.fcounts[k] += 1
 
-    def train(self, trainset):
+    def train(self, trainset, testset):
         if self.method == 'leitner' or self.method == 'pimsleur':
             return
         random.shuffle(trainset)
@@ -120,6 +120,7 @@ class SpacedRepetitionModel(object):
             print("epoch %d" % epoch)
             for inst in trainset:
                 self.train_update(inst)
+            self.eval(testset, prefix='epoch_eval')
 
     def losses(self, inst):
         p, h = self.predict(inst)
@@ -316,7 +317,7 @@ if __name__ == "__main__":
 
     # train model & print preliminary evaluation info
     model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t, hlwt=args.hlwt, l2wt=args.l2wt)
-    model.train(trainset)
+    model.train(trainset, testset)
     model.eval(testset, 'test')
 
     # write out model weights and predictions
