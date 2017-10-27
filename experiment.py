@@ -14,6 +14,7 @@ import random
 import sys
 from sys import intern
 from collections import defaultdict, namedtuple
+from sklearn.metrics import roc_auc_score
 
 
 # various constraints on parameters and outputs
@@ -191,15 +192,16 @@ class SpacedRepetitionModel(object):
         mae_h = mae(results['h'], results['hh'])
         cor_p = spearmanr(results['p'], results['pp'])
         cor_h = spearmanr(results['h'], results['hh'])
+        auc_p = roc_auc_score([round(x) for x in results['p']], results['pp'])
         total_slp = sum(results['slp'])
         total_slh = sum(results['slh'])
         total_l2 = sum([x**2 for x in self.weights.values()])
         total_loss = total_slp + self.hlwt * total_slh + self.l2wt * total_l2
         if prefix:
             sys.stderr.write('%s\t' % prefix)
-        sys.stderr.write('%.1f (p=%.1f, h=%.1f, l2=%.1f)\tmae(p)=%.3f\tcor(p)=%.3f\tmae(h)=%.3f\tcor(h)=%.3f\n' %
+        sys.stderr.write('%.1f (p=%.1f, h=%.1f, l2=%.1f)\tmae(p)=%.3f\tcor(p)=%.3f\tmae(h)=%.3f\tcor(h)=%.3f\tauc(t)=%.3f\n' %
                          (total_loss, total_slp, self.hlwt * total_slh, self.l2wt * total_l2,
-                          mae_p, cor_p, mae_h, cor_h))
+                          mae_p, cor_p, mae_h, cor_h, auc_p))
 
     def dump_weights(self, fname):
         with open(fname, 'w') as f:
