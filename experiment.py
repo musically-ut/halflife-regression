@@ -99,7 +99,7 @@ class SpacedRepetitionModel(object):
             dlh_dw = 2. * (h - h_empirical) * LN2 * h
 
             dlp_dA = 2 * (p - inst.p) * (1 + B * inst.t) ** (-1 / h)
-            dlp_dB = 2 * (p - inst.p) * p * inst.t / (1 + B * inst.t)
+            dlp_dB = 2 * (p - inst.p) * p * inst.t / (h * (1 + B * inst.t))
 
             dlh_dA = 2 * (h - h_empirical) / (A * log_p)
             dlh_dB = 2 * (h - h_empirical) * inst.t / ((1 + B * inst.t) * log_p)
