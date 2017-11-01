@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Copyright (c) 2016 Duolingo Inc. MIT Licence.
 
@@ -35,7 +36,7 @@ class SpacedRepetitionModel(object):
       - 'leitner' (fixed)
       - 'pimsleur' (fixed)
     """
-    def __init__(self, method='hlr', omit_h_term=False, initial_weights=None, lrate=.001, hlwt=.1, l2wt=.1, sigma=1.):
+    def __init__(self, method='hlr', omit_h_term=False, only_lexeme_reg=False, initial_weights=None, lrate=.001, hlwt=.1, l2wt=.1, sigma=1.):
         self.method = method
         self.omit_h_term = omit_h_term
         self.weights = defaultdict(float)
@@ -51,6 +52,7 @@ class SpacedRepetitionModel(object):
         self.hlwt = hlwt
         self.l2wt = l2wt
         self.sigma = sigma
+        self.only_lexeme_reg = only_lexeme_reg
 
     def halflife(self, inst, base):
         try:
@@ -126,7 +128,9 @@ class SpacedRepetitionModel(object):
                         self.weights[k] -= rate * self.hlwt * dlh_dw * x_k
 
                 # L2 regularization update
-                self.weights[k] -= rate * self.l2wt * self.weights[k] / self.sigma ** 2
+                is_lexeme_weight = not any([k.startswith(x) for x in ['A', 'B', 'right', 'wrong', 'bias']])
+                if not self.only_lexeme_reg or is_lexeme_weight:
+                    self.weights[k] -= rate * self.l2wt * self.weights[k] / self.sigma ** 2
 
                 # Increment feature count for learning rate
                 self.fcounts[k] += 1
@@ -144,7 +148,11 @@ class SpacedRepetitionModel(object):
                 if not self.omit_h_term:
                     self.weights[k] -= rate * self.hlwt * dlh_dw * x_k
                 # L2 regularization update
-                self.weights[k] -= rate * self.l2wt * self.weights[k] / self.sigma**2
+
+                is_lexeme_weight = not any([k.startswith(x) for x in ['right', 'wrong', 'bias']])
+                if not self.only_lexeme_reg or is_lexeme_weight:
+                    self.weights[k] -= rate * self.l2wt * self.weights[k] / self.sigma**2
+
                 # increment feature count for learning rate
                 self.fcounts[k] += 1
         elif self.method == 'leitner' or self.method == 'pimsleur':
@@ -341,6 +349,8 @@ argparser.add_argument('input_file', action="store", help='log file for training
 argparser.add_argument('-h_reg', action="store", dest="hlwt", type=float, help="h regularization weight", default=0.01)
 argparser.add_argument('-l2wt', action="store", dest="l2wt", type=float, help="L2 regularization weight", default=0.1)
 argparser.add_argument('-bins', action="store", dest="bins", help="File where the bins boundaries are stored (in days).", default=None)
+argparser.add_argument('-only_lexeme_reg', action="store_true", dest="only_lexeme_reg", help="Apply regularization only to the lexeme specific terms.", default=False)
+argparser.add_argument('-bootstrap', action="store", dest="bootstrap", help="Seed to use for bootstrapping.", default=None, type=int)
 
 if __name__ == "__main__":
 
@@ -354,6 +364,10 @@ if __name__ == "__main__":
         sys.stderr.write('--> omit_lexemes\n')
     if args.t:
         sys.stderr.write('--> omit_h_term\n')
+    if args.only_lexeme_reg:
+        sys.stderr.write('--> only_lexeme_reg\n')
+    if args.bootstrap is not None:
+        sys.stderr.write('--> bootstrapping\n')
 
     if args.method == 'hlr-pw' and args.bins is None:
         sys.stderr.write('Must provide a file with the time-bins for HLR/Piecewise-Constant rates.')
@@ -371,9 +385,11 @@ if __name__ == "__main__":
     sys.stderr.write('|test|  = %d\n' % len(testset))
 
     # train model & print preliminary evaluation info
-    model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t, hlwt=args.hlwt, l2wt=args.l2wt)
+    model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t, only_lexeme_reg=args.only_lexeme_reg, hlwt=args.hlwt, l2wt=args.l2wt)
     model.train(trainset, testset)
-    model.eval(testset, 'test')
+
+    if len(testset) > 0:
+        model.eval(testset, 'test')
 
     # write out model weights and predictions
     filebits = [args.method] + \
@@ -389,4 +405,7 @@ if __name__ == "__main__":
         os.makedirs('results/')
     model.dump_weights('results/' + filebase + '.weights')
     model.dump_predictions('results/' + filebase + '.preds', testset)
+
+    print('Wrote weights/predictions to {}.{{weights,preds}}'.format(filebase))
+
     # model.dump_detailed_predictions('results/'+filebase+'.detailed', testset)
