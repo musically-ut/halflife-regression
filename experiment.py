@@ -178,7 +178,9 @@ class SpacedRepetitionModel(object):
             print("epoch %d" % epoch)
             for inst in trainset:
                 self.train_update(inst)
-            self.eval(testset, prefix='epoch_eval')
+
+            if len(testset) > 0:
+                self.eval(testset, prefix='epoch_eval')
 
     def losses(self, inst):
         p, h = self.predict(inst)
@@ -271,7 +273,8 @@ def spearmanr(l1, l2):
         return float('nan')
 
 
-def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines=None, bins=None):
+def read_data(input_file, method, omit_bias=False, omit_lexemes=False,
+              max_lines=None, bins=None, bootstrap=None):
     # read learning trace data in specified format, see README for details
     sys.stderr.write('reading data...')
 
@@ -335,8 +338,14 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
         if i % 1000000 == 0:
             sys.stderr.write('%d...' % i)
     sys.stderr.write('done!\n')
-    splitpoint = int(0.9 * len(instances))
-    return instances[:splitpoint], instances[splitpoint:]
+
+    if bootstrap is None:
+        splitpoint = int(0.9 * len(instances))
+        return instances[:splitpoint], instances[splitpoint:]
+    else:
+        rs = random.Random(bootstrap * 10 + 11)
+        instances = rs.choices(instances, k=len(instances))
+        return instances, []
 
 
 argparser = argparse.ArgumentParser(description='Fit a SpacedRepetitionModel to data.')
@@ -380,7 +389,7 @@ if __name__ == "__main__":
     else:
         bins = None
 
-    trainset, testset = read_data(args.input_file, args.method, args.b, args.l, args.max_lines, bins=bins)
+    trainset, testset = read_data(args.input_file, args.method, args.b, args.l, args.max_lines, bins=bins, bootstrap=args.bootstrap)
     sys.stderr.write('|train| = %d\n' % len(trainset))
     sys.stderr.write('|test|  = %d\n' % len(testset))
 
@@ -394,15 +403,19 @@ if __name__ == "__main__":
     # write out model weights and predictions
     filebits = [args.method] + \
         [k for k, v in sorted(vars(args).items()) if v is True] + \
+        ["{},{}".format(k, v) for k, v in sorted(vars(args).items()) if isinstance(v, float)] + \
         [os.path.splitext(os.path.basename(args.input_file).replace('.gz', ''))[0]]
     if bins is not None:
-        filebits += ['{}-bins'.format(len(bins) - 1)]
+        filebits.append('{}-bins'.format(len(bins) - 1))
+    if args.bootstrap is not None:
+        filebits.append('bootstrap-{}'.format(args.bootstrap))
 
     if args.max_lines is not None:
         filebits.append(str(args.max_lines))
     filebase = '.'.join(filebits)
     if not os.path.exists('results/'):
         os.makedirs('results/')
+
     model.dump_weights('results/' + filebase + '.weights')
     model.dump_predictions('results/' + filebase + '.preds', testset)
 
