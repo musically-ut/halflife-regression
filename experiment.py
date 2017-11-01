@@ -345,7 +345,7 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False,
     else:
         rs = random.Random(bootstrap * 10 + 11)
         instances = rs.choices(instances, k=len(instances))
-        return instances, []
+        return instances, instances
 
 
 argparser = argparse.ArgumentParser(description='Fit a SpacedRepetitionModel to data.')
@@ -355,6 +355,7 @@ argparser.add_argument('-t', action="store_true", default=False, help='omit half
 argparser.add_argument('-m', action="store", dest="method", default='hlr', help="hlr, lr, leitner, pimsleur, hlr-pw,power")
 argparser.add_argument('-x', action="store", dest="max_lines", type=int, default=None, help="maximum number of lines to read (for dev)")
 argparser.add_argument('input_file', action="store", help='log file for training')
+argparser.add_argument('-R', action="store", dest="results", type=str, help="Folder for saving resulting preds/weights.", default='results')
 argparser.add_argument('-h_reg', action="store", dest="hlwt", type=float, help="h regularization weight", default=0.01)
 argparser.add_argument('-l2wt', action="store", dest="l2wt", type=float, help="L2 regularization weight", default=0.1)
 argparser.add_argument('-bins', action="store", dest="bins", help="File where the bins boundaries are stored (in days).", default=None)
@@ -377,6 +378,8 @@ if __name__ == "__main__":
         sys.stderr.write('--> only_lexeme_reg\n')
     if args.bootstrap is not None:
         sys.stderr.write('--> bootstrapping\n')
+
+    sys.stderr.write('Saving to "{}" folder.'.format(args.results))
 
     if args.method == 'hlr-pw' and args.bins is None:
         sys.stderr.write('Must provide a file with the time-bins for HLR/Piecewise-Constant rates.')
@@ -413,11 +416,12 @@ if __name__ == "__main__":
     if args.max_lines is not None:
         filebits.append(str(args.max_lines))
     filebase = '.'.join(filebits)
-    if not os.path.exists('results/'):
-        os.makedirs('results/')
 
-    model.dump_weights('results/' + filebase + '.weights')
-    model.dump_predictions('results/' + filebase + '.preds', testset)
+    if not os.path.exists(args.results):
+        os.makedirs(args.results)
+
+    model.dump_weights(os.path.join(args.results, filebase + '.weights'))
+    model.dump_predictions(os.path.join(args.results, filebase + '.preds'), testset)
 
     print('Wrote weights/predictions to {}.{{weights,preds}}'.format(filebase))
 
