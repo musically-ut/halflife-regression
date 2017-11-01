@@ -207,7 +207,7 @@ class SpacedRepetitionModel(object):
         total_loss = total_slp + self.hlwt * total_slh + self.l2wt * total_l2
         if prefix:
             sys.stderr.write('%s\t' % prefix)
-        sys.stderr.write('%.1f (p=%.1f, h=%.1f, l2=%.1f)\tmae(p)=%.3f\tcor(p)=%.3f\tmae(h)=%.3f\tcor(h)=%.3f\tauc(p)=%.3f\n' %
+        sys.stderr.write('%.1f (p=%.1f, h=%.1f, l2=%.1f)\tmae(p)=%.5f\tcor(p)=%.5f\tmae(h)=%.5f\tcor(h)=%.5f\tauc(p)=%.5f\n' %
                          (total_loss, total_slp, self.hlwt * total_slh, self.l2wt * total_l2,
                           mae_p, cor_p, mae_h, cor_h, auc_p))
 
