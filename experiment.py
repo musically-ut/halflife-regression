@@ -345,7 +345,7 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False,
     else:
         rs = random.Random(bootstrap * 10 + 11)
         instances = rs.choices(instances, k=len(instances))
-        return instances, instances
+        return instances, []
 
 
 argparser = argparse.ArgumentParser(description='Fit a SpacedRepetitionModel to data.')
