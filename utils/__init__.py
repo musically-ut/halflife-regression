@@ -9,7 +9,7 @@ def add_filename_cols(df):
             print('Column N could not be extracted.')
 
     try:
-        df['h_reg'] = df.file.str.extract(r'(h_reg|hlwt)[-,]([^.]+\.[^.]+)', expand=True).iloc[:, 1].astype(float)
+        df['h_reg'] = df.file.str.extract(r'(h_reg|hlwt)[-,]([^.]*\.[^.]+)', expand=True).iloc[:, 1].astype(float)
     except:
         print('Column h_reg could not be extracted.')
 
