@@ -32,6 +32,7 @@ class SpacedRepetitionModel(object):
     Spaced repetition model. Implements the following approaches:
       - 'hlr' (half-life regression; trainable)
       - 'lr' (logistic regression; trainable)
+      - 'power' (power-law regression; trainable)
       - 'leitner' (fixed)
       - 'pimsleur' (fixed)
     """
@@ -308,7 +309,7 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
             # fv.append((intern('right'), math.sqrt(1+right)))
             # fv.append((intern('wrong'), math.sqrt(1+wrong)))
         elif method == 'hlr-pw':
-            # Now need to fill in the right_{qantile} for each row.
+            # Now need to fill in the right_{quantile} for each row.
             for q in range(num_quantiles):
                 in_this_quantile = quantile_intervals[q][0] <= t < quantile_intervals[q][1]
                 fv.append(('right_%d' % q, right if in_this_quantile else 0))
@@ -335,7 +336,7 @@ argparser = argparse.ArgumentParser(description='Fit a SpacedRepetitionModel to 
 argparser.add_argument('-b', action="store_true", default=False, help='omit bias feature')
 argparser.add_argument('-l', action="store_true", default=False, help='omit lexeme features')
 argparser.add_argument('-t', action="store_true", default=False, help='omit half-life term')
-argparser.add_argument('-m', action="store", dest="method", default='hlr', help="hlr, lr, leitner, pimsleur, hlr-pw,power")
+argparser.add_argument('-m', action="store", dest="method", default='hlr', help="hlr, lr, leitner, pimsleur, hlr-pw, power")
 argparser.add_argument('-x', action="store", dest="max_lines", type=int, default=None, help="maximum number of lines to read (for dev)")
 argparser.add_argument('input_file', action="store", help='log file for training')
 argparser.add_argument('-h_reg', action="store", dest="hlwt", type=float, help="h regularization weight", default=0.01)
