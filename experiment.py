@@ -163,11 +163,11 @@ class SpacedRepetitionModel(object):
                 # increment feature count for learning rate
                 self.fcounts[k] += 1
 
-    def train(self, trainset, testset):
+    def train(self, trainset, testset, n_epochs=3):
         if self.method == 'leitner' or self.method == 'pimsleur':
             return
         random.shuffle(trainset)
-        for epoch in range(3):
+        for epoch in range(n_epochs):
             print("epoch %d" % epoch)
             for inst in trainset:
                 self.train_update(inst)
@@ -342,6 +342,7 @@ argparser.add_argument('input_file', action="store", help='log file for training
 argparser.add_argument('-h_reg', action="store", dest="hlwt", type=float, help="h regularization weight", default=0.01)
 argparser.add_argument('-l2wt', action="store", dest="l2wt", type=float, help="L2 regularization weight", default=0.1)
 argparser.add_argument('-bins', action="store", dest="bins", help="File where the bins boundaries are stored (in days).", default=None)
+argparser.add_argument('-epochs', action="store", dest="epochs", type=int, help="Number of epochs to train for.", default=3)
 
 if __name__ == "__main__":
 
@@ -373,7 +374,7 @@ if __name__ == "__main__":
 
     # train model & print preliminary evaluation info
     model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t, hlwt=args.hlwt, l2wt=args.l2wt)
-    model.train(trainset, testset)
+    model.train(trainset, testset, n_epochs=args.epochs)
     model.eval(testset, 'test')
 
     # write out model weights and predictions
