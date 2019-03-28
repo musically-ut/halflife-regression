@@ -264,7 +264,7 @@ def spearmanr(l1, l2):
         return float('nan')
 
 
-def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines=None, bins=None):
+def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines=None, bins=None, seed=-1):
     # read learning trace data in specified format, see README for details
     sys.stderr.write('reading data...')
 
@@ -329,6 +329,12 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
             sys.stderr.write('%d...' % i)
     sys.stderr.write('done!\n')
     splitpoint = int(0.9 * len(instances))
+
+    if seed > 0:
+        sys.stderr.write('Shuffling with seed %d.\n' % seed)
+        random.seed(seed)
+        random.shuffle(instances)
+
     return instances[:splitpoint], instances[splitpoint:]
 
 
@@ -343,6 +349,7 @@ argparser.add_argument('-h_reg', action="store", dest="hlwt", type=float, help="
 argparser.add_argument('-l2wt', action="store", dest="l2wt", type=float, help="L2 regularization weight", default=0.1)
 argparser.add_argument('-bins', action="store", dest="bins", help="File where the bins boundaries are stored (in days).", default=None)
 argparser.add_argument('-epochs', action="store", dest="epochs", type=int, help="Number of epochs to train for.", default=3)
+argparser.add_argument('-shuffle', action="store", dest="shuffle", type=int, default=-1, help="The seed to use to shuffle data, -1 for no shuffling.")
 
 if __name__ == "__main__":
 
@@ -368,7 +375,7 @@ if __name__ == "__main__":
     else:
         bins = None
 
-    trainset, testset = read_data(args.input_file, args.method, args.b, args.l, args.max_lines, bins=bins)
+    trainset, testset = read_data(args.input_file, args.method, args.b, args.l, args.max_lines, bins=bins, seed=args.shuffle)
     sys.stderr.write('|train| = %d\n' % len(trainset))
     sys.stderr.write('|test|  = %d\n' % len(testset))
 
@@ -391,4 +398,4 @@ if __name__ == "__main__":
         os.makedirs('results/')
     model.dump_weights('results/' + filebase + '.weights')
     model.dump_predictions('results/' + filebase + '.preds', testset)
-    # model.dump_detailed_predictions('results/'+filebase+'.detailed', testset)
+    model.dump_detailed_predictions('results/'+filebase+'.detailed', testset)
