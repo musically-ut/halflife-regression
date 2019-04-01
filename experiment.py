@@ -264,7 +264,7 @@ def spearmanr(l1, l2):
         return float('nan')
 
 
-def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines=None, bins=None, seed=-1):
+def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines=None, bins=None, seed=-1, training_fraction=1.0):
     # read learning trace data in specified format, see README for details
     sys.stderr.write('reading data...')
 
@@ -335,8 +335,10 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
         random.seed(seed)
         random.shuffle(instances)
 
-    return instances[:splitpoint], instances[splitpoint:]
+    training = instances[:int(splitpoint * training_fraction)]
+    testing = instances[splitpoint:]
 
+    return training, testing
 
 argparser = argparse.ArgumentParser(description='Fit a SpacedRepetitionModel to data.')
 argparser.add_argument('-b', action="store_true", default=False, help='omit bias feature')
@@ -350,6 +352,7 @@ argparser.add_argument('-l2wt', action="store", dest="l2wt", type=float, help="L
 argparser.add_argument('-bins', action="store", dest="bins", help="File where the bins boundaries are stored (in days).", default=None)
 argparser.add_argument('-epochs', action="store", dest="epochs", type=int, help="Number of epochs to train for.", default=3)
 argparser.add_argument('-shuffle', action="store", dest="shuffle", type=int, default=-1, help="The seed to use to shuffle data, -1 for no shuffling.")
+argparser.add_argument('-training_fraction', action="store", dest="training_fraction", type=float, default=1.0, help="The fraction of data to use for training.")
 
 if __name__ == "__main__":
 
@@ -375,7 +378,7 @@ if __name__ == "__main__":
     else:
         bins = None
 
-    trainset, testset = read_data(args.input_file, args.method, args.b, args.l, args.max_lines, bins=bins, seed=args.shuffle)
+    trainset, testset = read_data(args.input_file, args.method, args.b, args.l, args.max_lines, bins=bins, seed=args.shuffle, training_fraction=args.training_fraction)
     sys.stderr.write('|train| = %d\n' % len(trainset))
     sys.stderr.write('|test|  = %d\n' % len(testset))
 
@@ -386,16 +389,18 @@ if __name__ == "__main__":
 
     # write out model weights and predictions
     filebits = [args.method] + \
-        [k for k, v in sorted(vars(args).items()) if v is True] + \
+        ['{}-{}'.format(k, v) for k, v in sorted(vars(args).items())] + \
         [os.path.splitext(os.path.basename(args.input_file).replace('.gz', ''))[0]]
+
     if bins is not None:
         filebits += ['{}-bins'.format(len(bins) - 1)]
 
     if args.max_lines is not None:
         filebits.append(str(args.max_lines))
+
     filebase = '.'.join(filebits)
     if not os.path.exists('results/'):
         os.makedirs('results/')
     model.dump_weights('results/' + filebase + '.weights')
     model.dump_predictions('results/' + filebase + '.preds', testset)
-    model.dump_detailed_predictions('results/'+filebase+'.detailed', testset)
+    model.dump_detailed_predictions('results/' + filebase + '.detailed', testset)
