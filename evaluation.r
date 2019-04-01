@@ -6,6 +6,7 @@ sr_evaluate <- function(preds_file) {
     cat(paste('%%%%%%%%%%%%%%%%', preds_file, '%%%%%%%%%%%%%%%%\n'));
     data <- read.csv(preds_file, sep='\t');
     cat('==== mean absolute error ====\n')
+    cat(paste('MAE = ', abs(data$p - data$pp)));
     print(t.test(abs(data$p - data$pp), abs(data$p - mean(data$p)), alternative='l'));
     cat('==== area under the ROC curve ====\n')
     print(roc(round(p) ~ pp, data=data));
